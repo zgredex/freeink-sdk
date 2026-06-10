@@ -41,6 +41,9 @@
 #if FREEINK_DRIVER_IT8951
 #include "driver/It8951Driver.h"
 #endif
+#if FREEINK_DRIVER_UC8279
+#include "driver/Uc8279Driver.h"
+#endif
 
 namespace freeink {
 namespace {
@@ -116,6 +119,8 @@ void FreeInkDisplay::selectDriver() {
       _driver = &lgfxEpdDriver();
 #elif FREEINK_DRIVER_IT8951
       _driver = &it8951Driver();
+#elif FREEINK_DRIVER_UC8279
+      _driver = &uc8279Driver();
 #endif
       break;
   }

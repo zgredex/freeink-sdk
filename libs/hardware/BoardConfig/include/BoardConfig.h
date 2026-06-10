@@ -49,19 +49,22 @@
 #ifndef FREEINK_DEVICE_M5PAPER
 #define FREEINK_DEVICE_M5PAPER 0
 #endif
+#ifndef FREEINK_DEVICE_EEGO
+#define FREEINK_DEVICE_EEGO 0
+#endif
 
 // --- 2) Coherence: exactly one MCU family, at least one device ---------------
 #if !(FREEINK_DEVICE_X4 || FREEINK_DEVICE_X3 || FREEINK_DEVICE_M5 ||         \
       FREEINK_DEVICE_MURPHY || FREEINK_DEVICE_DELINK || FREEINK_DEVICE_LILYGO || \
-      FREEINK_DEVICE_M5PAPER)
-#error "FreeInk: no device selected. Pass at least one -DFREEINK_DEVICE_<NAME> (X4, X3, M5, MURPHY, DELINK, LILYGO, M5PAPER) in your build env — see platformio.sample.ini."
+      FREEINK_DEVICE_M5PAPER || FREEINK_DEVICE_EEGO)
+#error "FreeInk: no device selected. Pass at least one -DFREEINK_DEVICE_<NAME> (X4, X3, M5, MURPHY, DELINK, LILYGO, M5PAPER, EEGO) in your build env — see platformio.sample.ini."
 #endif
 // Each device belongs to one MCU family; a binary targets exactly one. X3/X4 are
 // ESP32-C3; M5 PaperColor/Murphy/de-link/LilyGo are ESP32-S3; M5Paper v1.1 is the
 // classic ESP32 (ESP32-D0WDQ6). The three families differ in deep-sleep wakeup,
 // SPI peripheral count, and toolchain, so they never share a binary.
 #define FREEINK_MCU_C3 (FREEINK_DEVICE_X3 || FREEINK_DEVICE_X4)
-#define FREEINK_MCU_S3 (FREEINK_DEVICE_M5 || FREEINK_DEVICE_MURPHY || FREEINK_DEVICE_DELINK || FREEINK_DEVICE_LILYGO)
+#define FREEINK_MCU_S3 (FREEINK_DEVICE_M5 || FREEINK_DEVICE_MURPHY || FREEINK_DEVICE_DELINK || FREEINK_DEVICE_LILYGO || FREEINK_DEVICE_EEGO)
 #define FREEINK_MCU_ESP32 (FREEINK_DEVICE_M5PAPER)
 #if (FREEINK_MCU_C3 + FREEINK_MCU_S3 + FREEINK_MCU_ESP32) != 1
 #error "FreeInk: all selected devices must share one MCU family — ESP32-C3 (X3/X4), ESP32-S3 (M5/Murphy/de-link/LilyGo), or ESP32 (M5Paper). Build one binary per family."
@@ -108,6 +111,12 @@
 #define FREEINK_DRIVER_IT8951 1
 #else
 #define FREEINK_DRIVER_IT8951 0
+#endif
+// EEGO A4: UltraChip UC8279 (UC8xxx dual-RAM family, 552x768 B/W).
+#if FREEINK_DEVICE_EEGO
+#define FREEINK_DRIVER_UC8279 1
+#else
+#define FREEINK_DRIVER_UC8279 0
 #endif
 
 // --- 4) Derive default capabilities (override with -DFREEINK_CAP_*=0/1) -------
@@ -162,7 +171,7 @@ namespace BoardConfig {
 // Physical device family. X3 and X4 are sibling devices on the same ESP32-C3
 // board (identical pinout, different panel/size): both profiles compile into the
 // C3 binary and one is chosen at runtime (setDisplayX3() -> selectDevice).
-enum class Board : uint8_t { XteinkX4, XteinkX3, M5StackPaperColor, MurphyM3, DeLink, LilyGoT5S3, M5PaperV11 };
+enum class Board : uint8_t { XteinkX4, XteinkX3, M5StackPaperColor, MurphyM3, DeLink, LilyGoT5S3, M5PaperV11, EegoA4 };
 
 // How the board reports button presses.
 enum class InputStyle : uint8_t {
@@ -175,7 +184,7 @@ enum class InputStyle : uint8_t {
 // Panel controller silicon. Drivers are selected from this at begin().
 // LgfxEpd = a raw-parallel EPD with no on-glass controller, driven via LovyanGFX
 // (e.g. ED047TC1 on LilyGo T5 S3).
-enum class DisplayController : uint8_t { SSD1677, UC8253, ED2208, LgfxEpd, IT8951 };
+enum class DisplayController : uint8_t { SSD1677, UC8253, ED2208, LgfxEpd, IT8951, UC8279 };
 
 // Optional capacitive touch controller.
 enum class TouchController : uint8_t { None, Chsc6x, Gt911 };
@@ -549,6 +558,35 @@ constexpr BoardProfile M5PAPER_V11 = {
     NO_SDMMC,
     NO_GAUGE};
 
+// --- EEGO A4 — ESP32-S3, UltraChip UC8279 (552x768 portrait B/W), cap-touch ----
+// Topwin TWE0398NZ12 panel, 238 PPI, 52,992 B/plane, BUSY active-low. The
+// panel/controller/geometry come from the datasheet; every GPIO is recovered from
+// the stock firmware/PCB — TODO(bin). MVP is the display + SD card (books/storage):
+// fill `display` and the `sd` (SPI) or `sdmmc` (4-bit) fields from the recovered
+// pins. Touch (the device has cap touch), the SKU front light, and battery follow
+// once their pins are known.
+constexpr BoardProfile EEGO_A4 = {
+    Board::EegoA4,
+    "eego_a4",
+    InputStyle::DigitalButtons,  // TODO(bin): button GPIOs unknown; touch is the primary input
+    DisplayController::UC8279,
+    552,
+    768,
+    {PIN_UNASSIGNED, PIN_UNASSIGNED, PIN_UNASSIGNED, PIN_UNASSIGNED, PIN_UNASSIGNED, PIN_UNASSIGNED,
+     PIN_UNASSIGNED},  // TODO(bin): SCLK,MOSI,CS,DC,RST,BUSY,PWR
+    0,                 // displaySpiHz: 0 -> UC8279 driver default (10 MHz)
+    {PIN_UNASSIGNED, PIN_UNASSIGNED, PIN_UNASSIGNED, PIN_UNASSIGNED, PIN_UNASSIGNED, false, 0},  // TODO(bin): SD pins
+    {PIN_UNASSIGNED, PIN_UNASSIGNED, PIN_UNASSIGNED, PIN_UNASSIGNED, PIN_UNASSIGNED, PIN_UNASSIGNED, PIN_UNASSIGNED,
+     false},          // TODO(bin): button GPIOs
+    PIN_UNASSIGNED,   // batteryAdc TODO(bin)
+    PIN_UNASSIGNED,   // usbDetect: S3 native USB
+    NO_TOUCH,         // TODO(bin): EEGO has cap touch; controller + pins unknown
+    NO_FRONTLIGHT,    // TODO(bin): SKU-dependent front light; pin unknown
+    NO_AUDIO,
+    NO_FLIP,          // TODO(bin): verify panel mount orientation on hardware
+    NO_SDMMC,
+    NO_GAUGE};
+
 // Largest framebuffer (bytes) over the devices compiled into this build, derived
 // from the profiles above. The display facade sizes its static framebuffer to
 // this so one binary holds whichever panel is runtime-selected; a single-device
@@ -563,9 +601,10 @@ constexpr uint32_t MAX_FRAMEBUFFER_BYTES =
                    FREEINK_DEVICE_X3 ? panelBytes(XTEINK_X3) : 0u),
               cmax(FREEINK_DEVICE_M5 ? panelBytes(M5STACK_PAPER_COLOR) : 0u,
                    FREEINK_DEVICE_MURPHY ? panelBytes(MURPHY_M3) : 0u)),
-         cmax(cmax(FREEINK_DEVICE_DELINK ? panelBytes(DE_LINK) : 0u,
-                   FREEINK_DEVICE_LILYGO ? panelBytes(LILYGO_T5S3) : 0u),
-              FREEINK_DEVICE_M5PAPER ? panelBytes(M5PAPER_V11) : 0u));
+         cmax(cmax(cmax(FREEINK_DEVICE_DELINK ? panelBytes(DE_LINK) : 0u,
+                        FREEINK_DEVICE_LILYGO ? panelBytes(LILYGO_T5S3) : 0u),
+                   FREEINK_DEVICE_M5PAPER ? panelBytes(M5PAPER_V11) : 0u),
+              FREEINK_DEVICE_EEGO ? panelBytes(EEGO_A4) : 0u));
 
 // Compile-time default device — the profile ACTIVE starts as. With a single
 // device in the build this is the only device; with several same-MCU devices it
@@ -580,6 +619,8 @@ constexpr BoardProfile DEFAULT_DEVICE = DE_LINK;
 constexpr BoardProfile DEFAULT_DEVICE = LILYGO_T5S3;
 #elif FREEINK_DEVICE_M5PAPER
 constexpr BoardProfile DEFAULT_DEVICE = M5PAPER_V11;
+#elif FREEINK_DEVICE_EEGO
+constexpr BoardProfile DEFAULT_DEVICE = EEGO_A4;
 #elif FREEINK_DEVICE_X3 && !FREEINK_DEVICE_X4
 constexpr BoardProfile DEFAULT_DEVICE = XTEINK_X3;  // X3-only binary
 #else
@@ -618,6 +659,9 @@ inline bool selectDevice(Board which) {
 #if FREEINK_DEVICE_M5PAPER
     case Board::M5PaperV11: ACTIVE = M5PAPER_V11; return true;
 #endif
+#if FREEINK_DEVICE_EEGO
+    case Board::EegoA4: ACTIVE = EEGO_A4; return true;
+#endif
     default: break;
   }
   return false;
@@ -627,6 +671,7 @@ inline bool isM5StackPaperColor() { return ACTIVE.board == Board::M5StackPaperCo
 inline bool isMurphyM3() { return ACTIVE.board == Board::MurphyM3; }
 inline bool isDeLink() { return ACTIVE.board == Board::DeLink; }
 inline bool isM5PaperV11() { return ACTIVE.board == Board::M5PaperV11; }
+inline bool isEegoA4() { return ACTIVE.board == Board::EegoA4; }
 inline bool hasTouch() { return ACTIVE.touch.controller != TouchController::None; }
 inline bool hasPwmFrontlight() { return ACTIVE.frontlight.gpio != PIN_UNASSIGNED; }
 inline bool hasAudio() { return ACTIVE.audio.output != AudioOutput::None; }

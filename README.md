@@ -97,6 +97,7 @@ so the SD manager itself stays device-agnostic.
 | **de-link** | ESP32-S3 | SSD1677 | 800×480 | B/W + grayscale, PWM frontlight, native 4-bit SDMMC SD |
 | **M5Stack PaperColor** | ESP32-S3 | ED2208 | 400×600 Spectra-6 color | native interrupted-refresh driver, optional M5GFX backend |
 | **Murphy M3** | ESP32-S3 | UC8253 | 240×416 | B/W (90°-rotated framebuffer, full/fast LUTs), CHSC6x touch, PWM frontlight |
+| **EEGO A4** | ESP32-S3 | UC8279 | 552×768 | B/W (Topwin TWE0398NZ12); display driver + board profile wired — GPIO map, tuned LUTs, and cap-touch pending the stock-firmware dump |
 | **LilyGo T5 S3** | ESP32-S3 | ED047TC1 (raw parallel) | 960×540 16-gray | LovyanGFX EPD driver with 16-gray, GT911 touch, PWM backlight, BQ27220/BQ25896 I²C battery |
 | **M5Paper v1.1** | ESP32 (classic) | IT8951E | 540×960 16-gray ED047TC1 | hand-rolled IT8951 driver (own SPI, 1bpp→4bpp load, GC16/DU/A2 modes, auto rotation onto the portrait panel), GT911 touch, GPIO35 ADC battery |
 
@@ -105,7 +106,7 @@ it carries both board profiles (`XTEINK_X4` and `XTEINK_X3`) and picks one at
 runtime via `setDisplayX3()`, which swaps the active profile and driver. Devices
 on a different MCU build their own binary, selected with a `-DFREEINK_DEVICE_*`
 flag. A build targets exactly one of the three MCU families — ESP32-C3 (X3/X4),
-ESP32-S3 (de-link/PaperColor/Murphy/LilyGo), or classic ESP32 (M5Paper);
+ESP32-S3 (de-link/PaperColor/Murphy/LilyGo/EEGO), or classic ESP32 (M5Paper);
 `BoardConfig` rejects mixing families at compile time.
 
 Every SDK library compiles on ESP32-C3, ESP32-S3, and the classic ESP32.
@@ -156,6 +157,7 @@ MCU (a C3-vs-S3 mix is a compile error):
 | `-DFREEINK_DEVICE_M5` | M5 PaperColor (S3, ED2208 + color) |
 | `-DFREEINK_DEVICE_MURPHY` | Murphy M3 (S3, UC8253 + touch + frontlight) |
 | `-DFREEINK_DEVICE_LILYGO` | LilyGo T5 S3 (S3, ED047TC1 raw-parallel EPD via LovyanGFX) |
+| `-DFREEINK_DEVICE_EEGO` | EEGO A4 (S3, UC8279 552×768 B/W) |
 | *(none)* | **compile error** — a build must select at least one device |
 
 Multiple **different-pinout** devices on one MCU are runtime-selected: `ACTIVE`
